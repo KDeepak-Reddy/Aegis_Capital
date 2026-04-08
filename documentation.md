@@ -20,8 +20,9 @@
 10. [Testing Strategy](#10-testing-strategy)
 11. [Design Patterns & Architectural Decisions](#11-design-patterns--architectural-decisions)
 12. [Alternatives & Trade-offs](#12-alternatives--trade-offs)
-13. [Future Enhancements & Open Issues](#13-future-enhancements--open-issues)
-14. [Appendix – Diagrams & Tables](#14-appendix--diagrams--tables)
+13. [Future Enhancements & Open Issues](#13-future-enhancements--open-issues)  
+14. [Appendix – Diagrams & Tables](#14-appendix--diagrams--tables)  
+15. [Contribution Guidelines](#15-contribution-guidelines)
 
 ## 1. Project Overview
 
@@ -275,6 +276,22 @@ Front-ends are volume-mounted (`./Frontend:/app`) so any HTML/CSS change is inst
 | **Builder** | DTOs (AuthResponse.builder(), Transaction.builder()) | Improves readability for objects with many optional fields |
 | **Circuit Breaker (future)** | Potential wrapper around RestTemplate calls | Protects Transaction Service from cascading failures |
 
+### 11.1 Distributed Transaction Management (Saga Pattern)
+The banking system employs a **Simplified Orchestration Saga Pattern** to manage consistency across microservices. 
+
+*   **Orchestrator:** The **Transaction Service** acts as the central coordinator.
+*   **Workflow:** When a transfer is initiated, the Transaction Service sequentially invokes the Account Service for validation (IFSC/AccNo), debiting the sender, and crediting the receiver.
+*   **Compensating Transactions:** In the event of a failure at the peer service (e.g., credit failed due to receiver account freeze), the orchestrator triggers reverse operations (rollbacks) to restore the original balance, ensuring atomicity across service boundaries.
+
+### 11.2 SOLID Principles in Action
+The Aegis codebase is built on SOLID foundations to ensure maintainability:
+
+*   **S (Single Responsibility):** Each service handles one business domain. Auth handles identity; Account handles state; Transaction handles movement.
+*   **O (Open/Closed):** Business logic (e.g., Transfer types) is implemented using interface-driven controllers, allowing new types of banking products to be added without modifying core transaction logic.
+*   **L (Liskov Substitution):** Service implementations can be swapped (e.g., swapping a production database for an H2 instance in testing) without breaking the application logic.
+*   **I (Interface Segregation):** Internal vs. Public APIs are strictly separated. The Transaction Service uses a minimal internal Account API, rather than depending on the full administrative account interface.
+*   **D (Dependency Inversion):** High-level business services depend on Repository interfaces, not direct MySQL implementations. Spring Boot’s `@Autowired` and `@RequiredArgsConstructor` ensure all dependencies are injected.
+
 ## 12. Alternatives & Trade-offs
 
 | Decision | Alternative | Pros of Alternative | Cons of Chosen |
@@ -330,27 +347,27 @@ sequenceDiagram
 ```mermaid
 classDiagram
     class User {
-        +Long id
-        +String email
-        +String passwordHash
-        +String totpSecret
-        +String role
+        +Long id (BIGINT PRIMARY KEY)
+        +String email (VARCHAR UNIQUE)
+        +String passwordHash (VARCHAR)
+        +String totpSecret (VARCHAR)
+        +String role (ENUM 'USER', 'ADMIN')
     }
     class Account {
-        +Long id
-        +String accno
-        +String ifsccode
-        +String bankname
-        +BigDecimal balance
-        +String pinHash
-        +int version
+        +Long id (BIGINT PRIMARY KEY)
+        +String accno (VARCHAR UNIQUE)
+        +String ifsccode (VARCHAR)
+        +String bankname (VARCHAR)
+        +BigDecimal balance (DECIMAL 19,2)
+        +String pinHash (VARCHAR)
+        +int version (INT - Optimistic Locking)
     }
     class Transaction {
-        +Long id
-        +String type
-        +BigDecimal amount
-        +String status
-        +Date timestamp
+        +Long id (BIGINT PRIMARY KEY)
+        +String type (VARCHAR)
+        +BigDecimal amount (DECIMAL 19,2)
+        +String status (VARCHAR)
+        +Date timestamp (DATETIME)
     }
     User "1" --> "*" Account : owns
     Account "1" --> "*" Transaction : source/target
@@ -375,50 +392,27 @@ classDiagram
 | Admin | GET | `/admin/accounts` | ✅ (ADMIN) | Accounts list |
 | Admin | GET | `/admin/transactions` | ✅ (ADMIN) | Full ledger with status badges |
 
-### 14.4 .gitignore Rationale
+---
 
-```
-# Java / Maven
-target/
-*.class
-*.jar
-*.war
-*.ear
-*.log
-hs_err_pid*
+## 15. Contribution Guidelines
 
-# IDE
-.idea/
-*.iml
-*.iws
-*.ipr
-.vscode/
-.settings/
-.project
-.classpath
-.factorypath
-*.swp
-*~
+We welcome contributions to the Aegis Capital Banking System! To maintain code quality and security, please follow these guidelines:
 
-# Node / Frontend
-node_modules/
-skills/
-package-lock.json
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+### 🛠️ Working with Code
+1.  **Coding Standards:** Follow standard Java/Spring Boot conventions. Use Lombok for boilerplate reduction and ensure all DTOs are immutable where possible.
+2.  **Architecture:** Always respect the microservice boundaries. Do not share databases between services; use RESTful internal calls.
+3.  **Security:** Never hardcode secrets. Use environment variables defined in the `docker-compose.yml` for local testing.
 
-# OS Files
-.DS_Store
-Thumbs.db
-Desktop.ini
+### 🌿 Branching & PR Process
+1.  **Main Branch:** The `main` branch is protected and represents the stable product.
+2.  **Feature Branches:** Create a new branch for every feature or bugfix: `feature/name-of-feature` or `bugfix/issue-description`.
+3.  **Pull Requests:**
+    *   Target the `main` branch.
+    *   Include a clear description of changes.
+    *   Verify that your changes do not break the Docker build: `docker-compose build`.
 
-# Environment / Secrets
-.env
-*.env
-.gemini/
-.system_generated/
-```
+### 🧪 Submission
+Before pushing, ensure that all `application.yml` configs match the internal Docker network URLs to facilitate seamless peer testing.
 
 ---
 
