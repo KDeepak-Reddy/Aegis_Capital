@@ -82,6 +82,15 @@ public class AccountController {
         }
     }
 
+    @GetMapping("/internal/accounts/by-accno-ifsc")
+    public ResponseEntity<Account> getAccountByAccnoAndIfsccode(
+            @RequestParam String accno,
+            @RequestParam String ifsccode) {
+        return accountService.findByAccnoAndIfsccode(accno, ifsccode)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     @GetMapping("/internal/accounts/by-accno/{accno}")
     public ResponseEntity<Account> getAccountByAccno(@PathVariable String accno) {
         return accountService.findByAccno(accno)

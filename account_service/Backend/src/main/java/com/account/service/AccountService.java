@@ -69,6 +69,10 @@ public class AccountService {
         return accountRepository.findByAccno(accno);
     }
 
+    public Optional<Account> findByAccnoAndIfsccode(String accno, String ifsccode) {
+        return accountRepository.findByAccnoAndIfsccode(accno, ifsccode);
+    }
+
     public boolean verifyPin(Long id, String pin) {
         return accountRepository.findById(id)
                 .map(Account::getPin)

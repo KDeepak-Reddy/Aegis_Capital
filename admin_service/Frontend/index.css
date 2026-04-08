@@ -276,6 +276,7 @@ td:last-child { border-right: 1px solid var(--glass-border); border-top-right-ra
 
 .badge-success { background: rgba(63, 185, 80, 0.1); color: var(--success); border: 1px solid rgba(63, 185, 80, 0.2); }
 .badge-warning { background: rgba(227, 179, 65, 0.1); color: var(--warning); border: 1px solid rgba(227, 179, 65, 0.2); }
+.badge-error { background: rgba(248, 81, 73, 0.1); color: var(--error); border: 1px solid rgba(248, 81, 73, 0.2); }
 .badge-info { background: rgba(0, 122, 255, 0.1); color: #007aff; border: 1px solid rgba(0, 122, 255, 0.2); }
 
 .amount-credit { color: var(--success); font-weight: 700; }

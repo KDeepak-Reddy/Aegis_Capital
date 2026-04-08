@@ -47,3 +47,18 @@ docker-compose up --build -d
 
 ### 6. Container Optimization
 - Ensured all Spring Boot backend configurations (like database URLs, server ports, and CORS) accurately reflect the internal Docker network aliases (e.g., `mysql`, `account-backend:5050`).
+
+### 7. External Transfer "Double-Verification"
+- **Account Validation:** Implemented a robust check for external transfers where the system now validates both the **Account Number** and **IFSC Code** against the same existing account.
+- **Fail-Safe Processing:** If the combination does not match exactly, the transaction is rejected with a descriptive error, preventing funds from being sent to incorrect destinations.
+
+### 8. Unified UI & Identity System
+- **Profile Navigation:** Ported a premium, circular profile badge to all user-facing services. This provides a consistent view of the user's KYC details (PAN, Mobile, DOB) across the entire application lifecycle.
+- **Instant Navigation:** Based on user experience feedback, "Back to Dashboard" and "Back to Accounts" buttons are placed directly on the header for one-click access between microservices.
+- **Visual Status Tracking:** The Admin Asset Ledger now utilizes vibrant red/green badges to denote transaction success or failure at a glance.
+
+## 🔗 Repository Reference
+- **Auth Service:** Backend `(.auth_service/Backend)`, Frontend `(.auth_service/Frontend)`
+- **Account Service:** Backend `(.account_service/Backend)`, Frontend `(.account_service/Frontend)`
+- **Transaction Service:** Backend `(.transactionservice/src)`, Frontend `(.transactionservice/Frontend)`
+- **Admin Service:** Backend `(.admin_service/Backend)`, Frontend `(.admin_service/Frontend)`
