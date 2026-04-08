@@ -353,7 +353,7 @@ async function _loadTransactions(accountId, accNo) {
             tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color:var(--text-secondary)">No recorded transactions found for this account.</td></tr>`;
         } else {
             transactions.forEach(t => {
-                const isDebit = (t.type === 'WITHDRAW' || t.type === 'TRANSFER');
+                const isDebit = (t.type === 'WITHDRAW') || (t.type === 'TRANSFER' && String(t.accountId) === String(accountId));
                 const isInterest = (t.type === 'INTEREST');
                 const symbol = isDebit ? '-' : '+';
                 let amountClass = isDebit ? 'amount-debit' : 'amount-credit';
@@ -364,11 +364,13 @@ async function _loadTransactions(accountId, accNo) {
                 if (isDebit) typeBadgeClass = 'badge-warning';
 
                 const tr = document.createElement('tr');
+                const statusBadgeClass = t.status.startsWith('SUCCESS') ? 'badge-success' : 'badge-error';
                 tr.innerHTML = `
                     <td>#${t.id}</td>
                     <td><span class="badge ${typeBadgeClass}">${t.type}</span></td>
                     <td>${t.referenceAccountId ? `REF ACC #${t.referenceAccountId}` : isInterest ? '🏦 SYSTEM INTEREST' : 'DIRECT SYSTEM'}</td>
                     <td class="${amountClass}">${symbol}$${Number(t.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td><span class="badge ${statusBadgeClass}">${t.status}</span></td>
                     <td style="color:var(--text-secondary); font-size:13px">${new Date(t.createdAt).toLocaleString()}</td>
                 `;
                 tbody.appendChild(tr);

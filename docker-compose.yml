@@ -1,0 +1,107 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: aegis_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: Vishnu@123
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-pVishnu@123"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auth-backend:
+    build: ./auth_service/Backend
+    container_name: auth-backend
+    ports:
+      - "5052:5052"
+    environment:
+      - SERVER_PORT=5052
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/auth_service?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  account-backend:
+    build: ./account_service/Backend
+    container_name: account-backend
+    ports:
+      - "5050:5050"
+    environment:
+      - SERVER_PORT=5050
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/account_service?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  transaction-backend:
+    build: ./transactionservice
+    container_name: transaction-backend
+    ports:
+      - "5005:5005"
+    environment:
+      - SERVER_PORT=5005
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/transaction_service?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - ACCOUNT_SERVICE_URL=http://account-backend:5050
+    depends_on:
+      mysql:
+        condition: service_healthy
+      account-backend:
+        condition: service_started
+
+  admin-backend:
+    build: ./admin_service/Backend
+    container_name: admin-backend
+    ports:
+      - "5065:5065"
+    environment:
+      - SERVER_PORT=5065
+      - TRANSACTION_SERVICE_URL=http://transaction-backend:5005
+      - AUTH_SERVICE_URL=http://auth-backend:5052
+      - ACCOUNT_SERVICE_URL=http://account-backend:5050
+    depends_on:
+      - transaction-backend
+      - auth-backend
+      - account-backend
+
+  auth-frontend:
+    build: ./auth_service/Frontend
+    container_name: auth-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./auth_service/Frontend:/app
+      - /app/node_modules
+
+  account-frontend:
+    build: ./account_service/Frontend
+    container_name: account-frontend
+    ports:
+      - "5501:5501"
+    volumes:
+      - ./account_service/Frontend:/app
+      - /app/node_modules
+
+  transaction-frontend:
+    build: ./transactionservice/Frontend
+    container_name: transaction-frontend
+    ports:
+      - "5502:5502"
+    volumes:
+      - ./transactionservice/Frontend:/app
+      - /app/node_modules
+
+  admin-frontend:
+    build: ./admin_service/Frontend
+    container_name: admin-frontend
+    ports:
+      - "5503:5503"
+    volumes:
+      - ./admin_service/Frontend:/app
+      - /app/node_modules

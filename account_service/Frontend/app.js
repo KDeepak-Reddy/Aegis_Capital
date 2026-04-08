@@ -35,14 +35,6 @@ function showMessage(msg, type) {
 
 /** Main load */
 document.addEventListener('DOMContentLoaded', () => {
-    // 0) Always attach unauth button (works even without a token)
-    const redirectBtn = document.getElementById('redirectToLoginBtn');
-    if (redirectBtn) {
-        redirectBtn.addEventListener('click', () => {
-            window.location.href = AUTH_FRONTEND_URL;
-        });
-    }
-
     // 1) Capture token via URL for cross-origin SSO
     const urlParams = new URLSearchParams(window.location.search);
     const tokenFromUrl = urlParams.get('token');
@@ -55,29 +47,36 @@ document.addEventListener('DOMContentLoaded', () => {
     const mainContainer = document.getElementById('mainContainer');
     const unauthState = document.getElementById('unauthState');
 
-    // 2) Attach Logout button early (even before token checks) — safe no-ops without token
-    const logoutBtn = document.getElementById('logoutBtn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', () => {
-            try {
-                localStorage.removeItem('jwt');
-                localStorage.removeItem('mfaEmail');
-            } finally {
-                // Force a full page reload to reset all state/listeners
-                window.location.href = window.location.pathname;
-            }
+    // 2) Attach authenticated-only listeners
+    document.getElementById('showCreateFormBtn')?.addEventListener('click', showCreateForm);
+    document.getElementById('cancelCreateBtn')?.addEventListener('click', hideCreateForm);
+    document.getElementById('createAccountForm')?.addEventListener('submit', handleCreateAccount);
+
+    // Profile dropdown toggle
+    const profileIcon = document.getElementById('profileIcon');
+    const profileDropdown = document.getElementById('profileDropdown');
+    if (profileIcon && profileDropdown) {
+        profileIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = profileDropdown.getAttribute('aria-hidden') === 'false';
+            profileDropdown.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
         });
+        profileDropdown.addEventListener('click', e => e.stopPropagation());
+        document.addEventListener('click', () => profileDropdown.setAttribute('aria-hidden', 'true'));
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') profileDropdown.setAttribute('aria-hidden', 'true'); });
     }
 
-    // 2b) Back to Dashboard button
-    const backToDashboardBtn = document.getElementById('backToDashboardBtn');
-    if (backToDashboardBtn) {
-        backToDashboardBtn.addEventListener('click', () => {
-            window.location.href = 'http://localhost:5173/dashboard.html';
-        });
-    }
+    // Logout handler
+    const doLogout = () => { localStorage.clear(); window.location.href = window.location.pathname; };
+    document.getElementById('profileLogout')?.addEventListener('click', doLogout);
+    document.getElementById('redirectToLoginBtn')?.addEventListener('click', () => { window.location.href = AUTH_FRONTEND_URL; });
 
-    // 3) Token missing → Unauth state & return
+    // Back to Dashboard button
+    document.getElementById('backToDashboardBtn')?.addEventListener('click', () => {
+        window.location.href = 'http://localhost:5173/dashboard.html';
+    });
+
+    // 3) Token check
     if (!token) {
         mainContainer?.classList.add('hidden');
         unauthState?.classList.remove('hidden');
@@ -88,22 +87,29 @@ document.addEventListener('DOMContentLoaded', () => {
     unauthState?.classList.add('hidden');
     mainContainer?.classList.remove('hidden');
 
-    // Decode token email (best-effort)
-    try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        document.getElementById('userEmailDisplay').textContent = payload.sub || 'User';
-    } catch {
-        document.getElementById('userEmailDisplay').textContent = 'Authenticated User';
-    }
-
-    // 5) Attach authenticated-only listeners
-    document.getElementById('showCreateFormBtn')?.addEventListener('click', showCreateForm);
-    document.getElementById('cancelCreateBtn')?.addEventListener('click', hideCreateForm);
-    document.getElementById('createAccountForm')?.addEventListener('submit', handleCreateAccount);
-
-    // 6) Load accounts
+    // Load profile (navbar) and accounts
+    fetchProfile(token);
     loadUserAccounts();
 });
+
+async function fetchProfile(token) {
+    try {
+        const resp = await fetch(`http://localhost:5052/api/profile`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (resp.status === 401 || resp.status === 403) { localStorage.clear(); window.location.href = window.location.pathname; return; }
+        if (resp.ok) {
+            const user = await resp.json();
+            const name = user.name || 'User';
+            document.getElementById('profileInitial').textContent = (name[0] || 'U').toUpperCase();
+            document.getElementById('profileName').textContent = name;
+            document.getElementById('profileEmail').textContent = user.email || '—';
+            document.getElementById('profileDob').textContent = user.dob || '—';
+            document.getElementById('profileMobile').textContent = user.mobileNo || '—';
+            document.getElementById('profilePan').textContent = user.panNo || '—';
+        }
+    } catch (err) { console.error('Profile fetch failed', err); }
+}
 
 async function loadUserAccounts() {
     const token = localStorage.getItem('jwt');

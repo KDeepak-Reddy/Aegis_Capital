@@ -15,6 +15,7 @@ import java.util.Optional;
 public interface AccountRepository extends JpaRepository<Account, Long> {
     List<Account> findByUserEmail(String userEmail);
     Optional<Account> findByAccno(String accno);
+    Optional<Account> findByAccnoAndIfsccode(String accno, String ifsccode);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional

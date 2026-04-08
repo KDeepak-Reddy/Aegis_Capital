@@ -228,17 +228,17 @@ async function handleTransferExternal(e) {
     btn.textContent = 'Looking up account...';
 
     try {
-        // 1) Resolve account number to account ID
+        // 1) Resolve account number and IFSC to account ID (Double Verification)
         const lookupResp = await fetchWithTimeout(
-            `${ACCOUNT_API}/internal/accounts/by-accno/${encodeURIComponent(accNo)}`
+            `${ACCOUNT_API}/internal/accounts/by-accno-ifsc?accno=${encodeURIComponent(accNo)}&ifsccode=${encodeURIComponent(document.getElementById('extIfsc').value.trim())}`
         );
 
         if (lookupResp.status === 404) {
-            showMessage('Account not found. Please check the account number.', 'error');
+            showMessage('Account details mismatch. Please verify Account Number and IFSC Code.', 'error');
             return;
         }
         if (!lookupResp.ok) {
-            throw new Error('Failed to look up account');
+            throw new Error('Failed to verify account details');
         }
 
         const destAccount = await lookupResp.json();
@@ -378,7 +378,25 @@ document.addEventListener('DOMContentLoaded', () => {
     // Display account badge
     document.getElementById('accountBadge').textContent = `Account: ${currentAccNo || currentAccountId}`;
 
-    // Back button
+    // Profile dropdown toggle
+    const profileIcon = document.getElementById('profileIcon');
+    const profileDropdown = document.getElementById('profileDropdown');
+    if (profileIcon && profileDropdown) {
+        profileIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = profileDropdown.getAttribute('aria-hidden') === 'false';
+            profileDropdown.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
+        });
+        profileDropdown.addEventListener('click', e => e.stopPropagation());
+        document.addEventListener('click', () => profileDropdown.setAttribute('aria-hidden', 'true'));
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') profileDropdown.setAttribute('aria-hidden', 'true'); });
+    }
+
+    // Logout handler
+    const doLogout = () => { localStorage.clear(); window.location.href = `http://localhost:5173/login.html`; };
+    document.getElementById('profileLogout')?.addEventListener('click', doLogout);
+
+    // Back to Accounts button
     document.getElementById('backToAccountsBtn')?.addEventListener('click', () => {
         window.location.href = `http://localhost:5501/index.html?token=${token}`;
     });
@@ -401,6 +419,26 @@ document.addEventListener('DOMContentLoaded', () => {
     // Refresh history button
     document.getElementById('refreshHistoryBtn')?.addEventListener('click', loadHistory);
 
-    // Load own accounts for transfer dropdown
+    // Load profile (navbar) and own accounts
+    fetchProfile(token);
     loadOwnAccounts();
 });
+
+async function fetchProfile(token) {
+    try {
+        const resp = await fetch(`http://localhost:5052/api/profile`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (resp.status === 401 || resp.status === 403) { localStorage.clear(); window.location.href = `http://localhost:5173/login.html`; return; }
+        if (resp.ok) {
+            const user = await resp.json();
+            const name = user.name || 'User';
+            document.getElementById('profileInitial').textContent = (name[0] || 'U').toUpperCase();
+            document.getElementById('profileName').textContent = name;
+            document.getElementById('profileEmail').textContent = user.email || '—';
+            document.getElementById('profileDob').textContent = user.dob || '—';
+            document.getElementById('profileMobile').textContent = user.mobileNo || '—';
+            document.getElementById('profilePan').textContent = user.panNo || '—';
+        }
+    } catch (err) { console.error('Profile fetch failed', err); }
+}
